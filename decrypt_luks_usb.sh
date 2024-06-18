@@ -1,27 +1,43 @@
 #!/bin/bash
 
-# Variables
-USB_DEVICE="/dev/sdX1"  # USB device with key
-LUKS_DEVICE="/dev/sdY1" # LUKS encrypted device
-MOUNT_POINT="/mnt/luks" # Mount point for decrypted LUKS device
-MAPPED_NAME="luks_device"
+# デバイスベンダーIDとプロダクトID
+VENDOR_ID="325d"
+PRODUCT_ID="6410"
 
-# Create mount point if it doesn't exist
-[ ! -d "$MOUNT_POINT" ] && sudo mkdir -p "$MOUNT_POINT"
+# LUKSボリュームのデバイス
+LUKS_DEVICE=$1
+MAPPED_NAME=$2
 
-# Decrypt LUKS device using key file from USB
-sudo cryptsetup luksOpen --key-file "$USB_DEVICE" "$LUKS_DEVICE" "$MAPPED_NAME"
+# USBデバイスのパーティションを見つける関数
+find_usb_partition() {
+    for sysfs_path in /sys/bus/usb/devices/*; do
+        if [ -f "$sysfs_path/idVendor" ] && [ -f "$sysfs_path/idProduct" ]; then
+            idVendor=$(cat "$sysfs_path/idVendor")
+            idProduct=$(cat "$sysfs_path/idProduct")
+            if [ "$idVendor" == "$VENDOR_ID" ] && [ "$idProduct" == "$PRODUCT_ID" ]; then
+                block_device=$(ls "$sysfs_path" | grep 'block')
+                if [ ! -z "$block_device" ]; then
+                    echo "/dev/$block_device"
+                    return 0
+                fi
+            fi
+        fi
+    done
+    return 1
+}
 
-# Check if the decryption was successful
-if [ $? -eq 0 ]; then
-    # Mount the decrypted LUKS device
-    sudo mount /dev/mapper/"$MAPPED_NAME" "$MOUNT_POINT"
-    if [ $? -eq 0 ]; then
-        echo "LUKS device mounted successfully at $MOUNT_POINT."
-    else
-        echo "Failed to mount the LUKS device."
-        sudo cryptsetup luksClose "$MAPPED_NAME"
-    fi
-else
-    echo "Failed to decrypt the LUKS device."
+# USBデバイスのパーティションを探す
+USB_PARTITION=$(find_usb_partition)
+if [ -z "$USB_PARTITION" ]; then
+    echo "エラー: 指定されたベンダーIDとプロダクトIDのUSBデバイスが見つかりません。"
+    exit 1
 fi
+
+# LUKSデバイスを解読
+cryptsetup open --type luks --key-file "$USB_PARTITION" "$LUKS_DEVICE" "$MAPPED_NAME"
+if [ $? -ne 0 ]; then
+    echo "エラー: LUKSデバイスの解読に失敗しました。"
+    exit 1
+fi
+
+echo "LUKSデバイスが成功裏に解読されました。"
