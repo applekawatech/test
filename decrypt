@@ -1,0 +1,11 @@
+#!/bin/bash
+
+build() {
+    add_runscript
+}
+
+help() {
+    cat <<HELPEOF
+This hook decrypts the LUKS device using a custom key file.
+HELPEOF
+}
