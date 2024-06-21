@@ -1,37 +1,36 @@
+#!/bin/bash
+
 run_hook() {
     echo "Running usbkeys hook..."
 
-    # Create a unique mount point directory
-    mount_point=$(mktemp -d /tmp/usbkey.XXXXXX)
+    # Check if the mount point exists, create it if not
+    if [ ! -d /mnt/encrypted_usb ]; then
+        sudo mkdir -p /mnt/encrypted_usb
+    fi
 
-    # Scan and mount all USB devices
-    for dev in /dev/disk/by-id/usb*; do
-        echo "Trying to mount USB device: $dev"
-        if mount -t auto "$dev" "$mount_point" 2>/dev/null; then
-            echo "USB key mounted at $mount_point"
-            break
-        else
-            echo "Failed to mount: $dev"
-        fi
-    done
+    # Mount encrypted USB device
+    if sudo cryptsetup luksOpen /dev/disk/by-uuid/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx my_encrypted_usb; then
+        sudo mount /dev/mapper/my_encrypted_usb /mnt/encrypted_usb
 
-    if mountpoint -q "$mount_point"; then
         # Copy the key file if found
-        if [ -f "$mount_point/Ilovemasa.py" ]; then
+        if [ -f /mnt/encrypted_usb/Ilovemasa.py ]; then
             echo "Key file found, copying to /tmp..."
-            cp -f "$mount_point/Ilovemasa.py" /tmp/Ilovemasa.py
+            sudo cp /mnt/encrypted_usb/Ilovemasa.py /tmp/Ilovemasa.py
         else
-            echo "Key file not found on USB key"
-            rm -rf "$mount_point"
+            echo "Key file not found on encrypted USB"
+            sudo umount /mnt/encrypted_usb
+            sudo cryptsetup luksClose my_encrypted_usb
             exit 1
         fi
 
-        # Unmount USB key
-        echo "Unmounting USB key..."
-        umount "$mount_point"
-        rm -rf "$mount_point"
+        # Unmount encrypted USB
+        sudo umount /mnt/encrypted_usb
+        sudo cryptsetup luksClose my_encrypted_usb
     else
-        echo "No USB key mounted"
+        echo "Failed to open encrypted USB device"
         exit 1
     fi
 }
+
+# Run the hook function
+run_hook
