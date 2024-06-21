@@ -19,32 +19,35 @@ run_hook() {
         chmod 1777 "$tmp_dir"  # Set permissions to drwxrwxrwt
     fi
 
+    # Ensure no device is currently mounted on the mount directory
+    umount "$mount_dir" >/dev/null 2>&1
+
     # Mount USB device
     usb_found=false
     for dev in /dev/disk/by-id/usb*; do
         echo "Trying to mount USB device: $dev"
-        if mount -t auto "$dev" "$mount_dir" 2>/dev/null; then
+        if mount -t auto "$dev" "$mount_dir" >/dev/null 2>&1; then
             echo "USB device mounted at $mount_dir"
             usb_found=true
             break
         else
             echo "Failed to mount: $dev"
+            umount "$mount_dir" >/dev/null 2>&1  # Unmount if already mounted
         fi
     done
 
     if $usb_found; then
-        # Move the key file if found
+        # Copy the key file if found
         if [ -f "$mount_dir/Ilovemasa.py" ]; then
-            echo "Key file found, moving to $tmp_dir/Ilovemasa.py"
-            mv "$mount_dir/Ilovemasa.py" "$tmp_dir/Ilovemasa.py"
+            echo "Key file found, copying to $tmp_dir/Ilovemasa.py"
+            cp "$mount_dir/Ilovemasa.py" "$tmp_dir/Ilovemasa.py"
         else
             echo "Key file not found on USB device"
-            exit 1
         fi
 
         # Unmount USB device
         echo "Unmounting USB device..."
-        umount "$mount_dir"
+        umount "$mount_dir" >/dev/null 2>&1
     else
         echo "No USB device mounted"
         exit 1
