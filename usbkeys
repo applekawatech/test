@@ -1,36 +1,35 @@
-#!/bin/bash
-
 run_hook() {
     echo "Running usbkeys hook..."
 
-    # Create mount point directory
-    mkdir -p /mnt/usbkey
+    # Create a unique mount point directory
+    mount_point=$(mktemp -d /tmp/usbkey.XXXXXX)
 
     # Scan and mount all USB devices
     for dev in /dev/disk/by-id/usb*; do
         echo "Trying to mount USB device: $dev"
-        mount -t auto "$dev" /mnt/usbkey 2>/dev/null
-        if [ $? -eq 0 ]; then
-            echo "USB key mounted at /mnt/usbkey"
+        if mount -t auto "$dev" "$mount_point" 2>/dev/null; then
+            echo "USB key mounted at $mount_point"
             break
         else
             echo "Failed to mount: $dev"
         fi
     done
 
-    if mountpoint -q /mnt/usbkey; then
+    if mountpoint -q "$mount_point"; then
         # Copy the key file if found
-        if [ -f /mnt/usbkey/Ilovemasa.py ]; then
+        if [ -f "$mount_point/Ilovemasa.py" ]; then
             echo "Key file found, copying to /tmp..."
-            cp /mnt/usbkey/Ilovemasa.py /tmp/Ilovemasa.py
+            cp -f "$mount_point/Ilovemasa.py" /tmp/Ilovemasa.py
         else
             echo "Key file not found on USB key"
+            rm -rf "$mount_point"
             exit 1
         fi
 
         # Unmount USB key
         echo "Unmounting USB key..."
-        umount /mnt/usbkey
+        umount "$mount_point"
+        rm -rf "$mount_point"
     else
         echo "No USB key mounted"
         exit 1
