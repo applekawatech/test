@@ -1,0 +1,28 @@
+run_hook() {
+    echo "USB key hook started" >> /tmp/usbkey.log
+
+    USB_KEYFILE=""
+    for dev in /dev/disk/by-id/usb-*; do
+        if [ -e "${dev}-part1" ]; then
+            mountpoint="/mnt/usbkey"
+            mkdir -p $mountpoint
+            mount "${dev}-part1" $mountpoint
+            if [ -f "${mountpoint}/keyfile" ]; then
+                cp "${mountpoint}/keyfile" /tmp/keyfile
+                USB_KEYFILE="/tmp/keyfile"
+                umount $mountpoint
+                rmdir $mountpoint
+                break
+            fi
+            umount $mountpoint
+            rmdir $mountpoint
+        fi
+    done
+
+    if [ -z "$USB_KEYFILE" ]; then
+        echo "No USB key file found" >> /tmp/usbkey.log
+        return 1
+    fi
+
+    echo "USB key file found: $USB_KEYFILE" >> /tmp/usbkey.log
+}
