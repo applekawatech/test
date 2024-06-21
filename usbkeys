@@ -3,31 +3,45 @@
 run_hook() {
     echo "Running usbkeys hook..."
 
-    # Check if the mount point exists, create it if not
-    if [ ! -d /mnt/encrypted_usb ]; then
-        sudo mkdir -p /mnt/encrypted_usb
+    # Fixed temporary directory path
+    tmp_dir="/run/tmp"
+
+    # Create the directory if it doesn't exist
+    if [ ! -d "$tmp_dir" ]; then
+        echo "Creating $tmp_dir directory..."
+        sudo mkdir -p "$tmp_dir"
+        sudo chmod 1777 "$tmp_dir"  # Set permissions to drwxrwxrwt
     fi
 
-    # Mount encrypted USB device
-    if sudo cryptsetup luksOpen /dev/disk/by-uuid/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx my_encrypted_usb; then
-        sudo mount /dev/mapper/my_encrypted_usb /mnt/encrypted_usb
-
-        # Copy the key file if found
-        if [ -f /mnt/encrypted_usb/Ilovemasa.py ]; then
-            echo "Key file found, copying to /tmp..."
-            sudo cp /mnt/encrypted_usb/Ilovemasa.py /tmp/Ilovemasa.py
+    # Mount USB devices
+    usb_found=false
+    for dev in /dev/disk/by-id/usb*; do
+        echo "Trying to mount USB device: $dev"
+        if sudo mount -t auto "$dev" "$tmp_dir" 2>/dev/null; then
+            echo "USB device mounted at $tmp_dir"
+            usb_found=true
+            break
         else
-            echo "Key file not found on encrypted USB"
-            sudo umount /mnt/encrypted_usb
-            sudo cryptsetup luksClose my_encrypted_usb
+            echo "Failed to mount: $dev"
+        fi
+    done
+
+    if $usb_found; then
+        # Copy the key file if found
+        if [ -f "$tmp_dir/Ilovemasa.py" ]; then
+            echo "Key file found, moving to $tmp_dir/Ilovemasa.py"
+            sudo mv "$tmp_dir/Ilovemasa.py" "$tmp_dir/Ilovemasa.py"
+        else
+            echo "Key file not found on USB device"
+            sudo umount "$tmp_dir"
             exit 1
         fi
 
-        # Unmount encrypted USB
-        sudo umount /mnt/encrypted_usb
-        sudo cryptsetup luksClose my_encrypted_usb
+        # Unmount USB device
+        echo "Unmounting USB device..."
+        sudo umount "$tmp_dir"
     else
-        echo "Failed to open encrypted USB device"
+        echo "No USB device mounted"
         exit 1
     fi
 }
