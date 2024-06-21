@@ -1,28 +1,26 @@
-run_hook() {
-    echo "USB key hook started" >> /tmp/usbkey.log
+# /etc/initcpio/hooks/usbkeys
 
-    USB_KEYFILE=""
-    for dev in /dev/disk/by-id/usb-*; do
-        if [ -e "${dev}-part1" ]; then
-            mountpoint="/mnt/usbkey"
-            mkdir -p $mountpoint
-            mount "${dev}-part1" $mountpoint
-            if [ -f "${mountpoint}/keyfile" ]; then
-                cp "${mountpoint}/keyfile" /tmp/keyfile
-                USB_KEYFILE="/tmp/keyfile"
-                umount $mountpoint
-                rmdir $mountpoint
-                break
-            fi
-            umount $mountpoint
-            rmdir $mountpoint
+run_hook() {
+    # USBデバイスをマウントポイントにマウントするためのディレクトリを作成
+    mkdir -p /mnt/usbkey
+
+    # すべてのUSBデバイスをスキャンしてマウント
+    for dev in /dev/disk/by-id/usb*; do
+        mount -t auto "$dev" /mnt/usbkey 2>/dev/null
+        if [ $? -eq 0 ]; then
+            echo "USB key mounted at /mnt/usbkey"
+            break
         fi
     done
 
-    if [ -z "$USB_KEYFILE" ]; then
-        echo "No USB key file found" >> /tmp/usbkey.log
-        return 1
+    # キーファイルを探してコピー
+    if [ -f /mnt/usbkey/Ilovemasa.py ]; then
+        cp /mnt/usbkey/Ilovemasa.py /tmp/Ilovemasa.py
+    else
+        echo "Key file not found on USB key"
+        exit 1
     fi
 
-    echo "USB key file found: $USB_KEYFILE" >> /tmp/usbkey.log
+    # マウント解除
+    umount /mnt/usbkey
 }
