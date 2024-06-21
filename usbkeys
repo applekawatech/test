@@ -3,10 +3,16 @@
 run_hook() {
     echo "Running usbkeys hook..."
 
-    # Fixed temporary directory path
+    # Fixed directory paths
+    mount_dir="/mnt/usbkey"
     tmp_dir="/run/tmp"
 
-    # Create the directory if it doesn't exist
+    # Create the directories if they don't exist
+    if [ ! -d "$mount_dir" ]; then
+        echo "Creating $mount_dir directory..."
+        mkdir -p "$mount_dir"
+    fi
+
     if [ ! -d "$tmp_dir" ]; then
         echo "Creating $tmp_dir directory..."
         mkdir -p "$tmp_dir"
@@ -17,8 +23,8 @@ run_hook() {
     usb_found=false
     for dev in /dev/disk/by-id/usb*; do
         echo "Trying to mount USB device: $dev"
-        if mount -t auto "$dev" "$tmp_dir" 2>/dev/null; then
-            echo "USB device mounted at $tmp_dir"
+        if mount -t auto "$dev" "$mount_dir" 2>/dev/null; then
+            echo "USB device mounted at $mount_dir"
             usb_found=true
             break
         else
@@ -27,17 +33,18 @@ run_hook() {
     done
 
     if $usb_found; then
-        # Copy the key file if found
-        if [ -f "$tmp_dir/Ilovemasa.py" ]; then
-            echo "Key file found, moving to /run/tmp/Ilovemasa.py"
-            mv "$tmp_dir/Ilovemasa.py" /run/tmp/Ilovemasa.py
+        # Move the key file if found
+        if [ -f "$mount_dir/Ilovemasa.py" ]; then
+            echo "Key file found, moving to $tmp_dir/Ilovemasa.py"
+            mv "$mount_dir/Ilovemasa.py" "$tmp_dir/Ilovemasa.py"
         else
             echo "Key file not found on USB device"
+            exit 1
         fi
 
         # Unmount USB device
         echo "Unmounting USB device..."
-        umount "$tmp_dir"
+        umount "$mount_dir"
     else
         echo "No USB device mounted"
         exit 1
