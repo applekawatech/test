@@ -1,11 +1,16 @@
 #!/bin/bash
+run_hook() {
+    # LUKSデバイスのパス
+    luks_device="/dev/sdX"
 
-build() {
-    add_runscript
-}
+    # キーファイルのパス
+    keyfile="/root/my_luks_keyfile"
 
-help() {
-    cat <<HELPEOF
-This hook decrypts the LUKS device using a custom key file.
-HELPEOF
+    # マッピングするデバイス名
+    mapped_device="my_luks_device"
+
+    # LUKSデバイスを開く
+    cryptsetup luksOpen "$luks_device" "$mapped_device" --key-file "$keyfile"
+
+    # 必要な場合は、ファイルシステムをマウントするなどの追加の操作をここに追加する
 }
